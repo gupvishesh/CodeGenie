@@ -13,9 +13,20 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+  {
+    "command": "codegenie.start",
+    "title": "Start CodeGenie"
+  },
+  {
+    "command": "codegenie.complete",
+    "title": "Complete CodeGenie"
+  }
+],
+    "keybindings": [
       {
-        "command": "codeGenie.start",
-        "title": "Start CodeGenie"
+        "command": "codegenie.complete",
+        "key": "ctrl+alt+c",
+        "when": "editorTextFocus"
       }
     ]
   },

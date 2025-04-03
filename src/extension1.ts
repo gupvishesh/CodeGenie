@@ -117,8 +117,8 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Register command
-    let disposable = vscode.commands.registerCommand('codegenielocal.complete', () => {
-        console.log("Command codegenielocal.complete executed."); // Log command execution
+    let disposable = vscode.commands.registerCommand('codegenie.complete', () => {
+        console.log("Command codegenie.complete executed."); // Log command execution
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             handleCompletion(editor);

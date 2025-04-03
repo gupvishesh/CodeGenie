@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load model and tokenizer
-MODEL_PATH = "./DeepSeekCoderInstruct"
+MODEL_PATH = "./Deepseek-Instruct"
 try:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
