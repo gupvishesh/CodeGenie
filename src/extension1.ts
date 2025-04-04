@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import fetch from 'cross-fetch';
-import { WebviewPanel } from './webviewPanel';
 
 interface ApiResponse {
     completion?: string;
@@ -23,35 +22,18 @@ function debounce<F extends (...args: any[]) => any>(
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('CodeGenie is now active!');
-
-    // Command to open the Webview Panel
-    let startDisposable = vscode.commands.registerCommand('codegenie.start', () => {
-        WebviewPanel.createOrShow(context.extensionUri);
-    });
-
-    // Command to get code completion
-    let completeDisposable = vscode.commands.registerCommand('codegenie.complete', () => {
-        console.log("Command codegenie.complete executed.");
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            handleCompletion(editor);
-        } else {
-            console.log("No active text editor.");
-        }
-    });
-
-    context.subscriptions.push(startDisposable, completeDisposable);
+    console.log('CodeGenie Local is now active!');
 
     let isProcessing = false;
-    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+    const statusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right
+    );
     context.subscriptions.push(statusBarItem);
-
-    const debouncedCompletion = debounce(getCompletion, 750);
 
     async function getCompletion(text: string): Promise<string> {
         try {
-            console.log("Sending text to API:", text);
+            console.log("Sending text to API:", text); // Log the text being sent
+
             const response = await fetch('http://127.0.0.1:5000/complete', {
                 method: 'POST',
                 headers: {
@@ -65,7 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const data = await response.json() as ApiResponse;
-            console.log("API response:", data);
+            console.log("API response:", data); // Log the API response
 
             if (data.error) {
                 throw new Error(data.error);
@@ -74,13 +56,15 @@ export function activate(context: vscode.ExtensionContext) {
             return data.completion ?? '';
         } catch (error) {
             if (error instanceof Error) {
-                console.error("API error:", error.message);
+                console.error("API error:", error.message); // Log API error
                 throw new Error(`API error: ${error.message}`);
             }
-            console.error("Unknown API error:", error);
+            console.error("Unknown API error:", error); // Log unknown error
             throw error;
         }
     }
+
+    const debouncedCompletion = debounce(getCompletion, 750);
 
     async function handleCompletion(editor: vscode.TextEditor) {
         if (isProcessing) return;
@@ -93,13 +77,14 @@ export function activate(context: vscode.ExtensionContext) {
             const document = editor.document;
             const selection = editor.selection;
 
+            // Get either the selected text or text up to cursor
             let text: string;
             if (!selection.isEmpty) {
                 text = document.getText(selection);
-                console.log("Selected text:", text);
+                console.log("Selected text:", text); // Log selected text
             } else {
                 text = document.getText(new vscode.Range(new vscode.Position(0, 0), selection.active));
-                console.log("Text up to cursor:", text);
+                console.log("Text up to cursor:", text); // Log text up to cursor
             }
 
             if (!text.trim()) {
@@ -108,26 +93,41 @@ export function activate(context: vscode.ExtensionContext) {
 
             const completion = await debouncedCompletion(text);
 
-            if (editor === vscode.window.activeTextEditor && document === editor.document) {
+            // Check if editor/document still exists and is the same
+            if (editor === vscode.window.activeTextEditor &&
+                document === editor.document) {
                 await editor.edit(editBuilder => {
                     editBuilder.insert(selection.end, completion);
-                    console.log("Completion inserted:", completion);
+                    console.log("Completion inserted:", completion); // Log the inserted completion
                 });
             } else {
-                console.log("Editor or document changed, completion not inserted.");
+                console.log("Editor or document changed, completion not inserted.");// log when completion is not inserted.
             }
         } catch (error) {
             if (error instanceof Error) {
                 vscode.window.showErrorMessage(error.message);
-                console.error("Completion error:", error.message);
-            } else {
-                console.error("Unknown completion error:", error);
+                console.error("Completion error:", error.message); // Log completion error
+            }else{
+                console.error("Unknown completion error:", error); // Log unknown error
             }
         } finally {
             isProcessing = false;
             statusBarItem.hide();
         }
     }
+
+    // Register command
+    let disposable = vscode.commands.registerCommand('codegenie.complete', () => {
+        console.log("Command codegenie.complete executed."); // Log command execution
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            handleCompletion(editor);
+        }else{
+            console.log("No active text editor."); // log when no active editor.
+        }
+    });
+
+    context.subscriptions.push(disposable);
 
     // Handle text changes
     const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(
@@ -136,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (editor && event.document === editor.document) {
                 const lastChange = event.contentChanges[event.contentChanges.length - 1];
                 if (lastChange && lastChange.text.endsWith('\n')) {
-                    console.log("Text change detected, triggering completion.");
+                    console.log("Text change detected, triggering completion."); // Log text change trigger
                     handleCompletion(editor);
                 }
             }
@@ -146,4 +146,4 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(changeDocumentSubscription);
 }
 
-export function deactivate() {}
+export function deactivate() { }
