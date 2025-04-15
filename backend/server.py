@@ -97,6 +97,32 @@ def complete():
     except Exception as e:
         logger.error(f"Error in /complete: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
+@app.route('/hf-complete', methods=['POST'])
+def hf_complete():
+    try:
+        data = request.get_json()
+        input_text = data.get("code", "").strip()
+
+        if not input_text:
+            return jsonify({"error": "No code provided"}), 400
+
+        logger.info(f"Received /hf-complete request for input length {len(input_text)}")
+
+        inputs = tokenizer(input_text, return_tensors="pt").to(device)
+        outputs = model.generate(**inputs, max_new_tokens=32)
+        full_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        # Trim input if echoed back
+        suggestion = full_output[len(input_text):].strip() if full_output.startswith(input_text) else full_output
+
+        logger.info(f"HF-complete suggestion: {suggestion}")
+        return jsonify({"completion": suggestion})
+
+    except Exception as e:
+        logger.error(f"Error in /hf-complete: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Flask server at http://127.0.0.1:5000")
