@@ -13,6 +13,10 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "codegenie.acceptGhostSuggestion",
+        "title": "Accept Ghost Suggestion"
+      },
   {
     "command": "codegenie.start",
     "title": "Start CodeGenie"
@@ -26,6 +30,11 @@
       {
         "command": "codegenie.complete",
         "key": "ctrl+alt+c",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codegenie.acceptGhostSuggestion",
+        "key": "tab",
         "when": "editorTextFocus"
       }
     ]
