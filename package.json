@@ -1,15 +1,19 @@
 {
   "name": "codegenie",
   "displayName": "CodeGenie",
-  "description": "",
+  "description": "AI-powered code completion and assistance for VSCode",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.98.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Programming Languages",
+    "Snippets"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -17,15 +21,19 @@
         "command": "codegenie.acceptGhostSuggestion",
         "title": "Accept Ghost Suggestion"
       },
-  {
-    "command": "codegenie.start",
-    "title": "Start CodeGenie"
-  },
-  {
-    "command": "codegenie.complete",
-    "title": "Complete CodeGenie"
-  }
-],
+      {
+        "command": "codegenie.start",
+        "title": "Start CodeGenie"
+      },
+      {
+        "command": "codegenie.complete",
+        "title": "Complete Code with CodeGenie"
+      },
+      {
+        "command": "codegenie.fillInTheMiddle",
+        "title": "Fill Code Gaps with CodeGenie"
+      }
+    ],
     "keybindings": [
       {
         "command": "codegenie.complete",
@@ -35,6 +43,11 @@
       {
         "command": "codegenie.acceptGhostSuggestion",
         "key": "tab",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codegenie.fillInTheMiddle",
+        "key": "ctrl+alt+8",
         "when": "editorTextFocus"
       }
     ]
