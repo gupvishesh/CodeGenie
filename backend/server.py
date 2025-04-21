@@ -164,7 +164,22 @@ def hf_complete():
             full_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
             # Trim input if echoed back
-            suggestion = full_output[len(input_text):].strip() if full_output.startswith(input_text) else full_output
+            #suggestion = full_output[len(input_text):].strip() if full_output.startswith(input_text) else full_output
+            # Remove echoed input
+            if full_output.startswith(input_text):
+                suggestion = full_output[len(input_text):]
+            else:
+                suggestion = full_output
+
+            # Stop suggestion at the start of any new function
+            lines = suggestion.split('\n')
+            filtered = []
+            for line in lines:
+                if line.strip().startswith("def ") and filtered:
+                    break  # Stop if another function is generated
+                filtered.append(line)
+    
+            suggestion = "\n".join(filtered).strip()
 
         logger.info(f"HF-complete suggestion of length: {len(suggestion)}")
         return jsonify({"completion": suggestion})

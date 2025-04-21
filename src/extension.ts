@@ -486,6 +486,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Ghost Suggestion Logic
+    let isInsertingSuggestion = false;
     let currentSuggestion = '';
     const suggestionDecoration = vscode.window.createTextEditorDecorationType({
         after: {
@@ -547,10 +548,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('codegenie.acceptGhostSuggestion', () => {
             const editor = vscode.window.activeTextEditor;
             if (editor && currentSuggestion) {
+                isInsertingSuggestion = true;
                 editor.edit(editBuilder => {
                     editBuilder.insert(editor.selection.active, currentSuggestion);
+                }).then(() => {
+                    clearSuggestion(editor);
+                    isInsertingSuggestion = false;
                 });
-                clearSuggestion(editor);
+                
             }
         })
     );
@@ -560,6 +565,9 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeTextDocument(async (event) => {
             const editor = vscode.window.activeTextEditor;
             if (!editor || event.document !== editor.document) return;
+
+            // Skip suggestion if just inserted
+            if (isInsertingSuggestion) return;
 
             const position = editor.selection.active;
             const text = editor.document.getText(new vscode.Range(new vscode.Position(0, 0), position));
