@@ -32,6 +32,10 @@
       {
         "command": "codegenie.fillInTheMiddle",
         "title": "Fill Code Gaps with CodeGenie"
+      },
+      {
+        "command": "codegenie.debugCode",
+        "title": "Debug Selected Code"
       }
     ],
     "keybindings": [
@@ -48,6 +52,11 @@
       {
         "command": "codegenie.fillInTheMiddle",
         "key": "ctrl+alt+8",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codegenie.debugCode",
+        "key": "ctrl+alt+r",
         "when": "editorTextFocus"
       }
     ]
@@ -72,6 +81,8 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "cross-fetch": "^4.1.0"
+    "axios": "^1.8.4",
+    "cross-fetch": "^4.1.0",
+    "marked": "^4.3.0"
   }
 }
