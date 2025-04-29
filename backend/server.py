@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Model configuration
-MODEL_PATH = r"C:\Users\INDIA\Desktop\deepseekModel\Deepseek-Instruct"
+MODEL_PATH = os.environ.get("MODEL_PATH", "./Deepseek-Instruct")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Initialize model and tokenizer with proper error handling
