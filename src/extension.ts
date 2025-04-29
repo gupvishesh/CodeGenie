@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import fetch from 'cross-fetch';
 import { WebviewPanel } from './webviewPanel';
-import axios from 'axios';
 
 interface ApiResponse {
     completion?: string;
@@ -129,11 +128,18 @@ let disposable = vscode.commands.registerCommand('codegenie.debugCode', async ()
         }, async (progress) => {
             progress.report({ message: "Analyzing code..." });
 
-            const response = await axios.post('http://localhost:5000/debug', {
-                prompt: `Please debug this code:\n\`\`\`\n${code}\n\`\`\``
+            const response = await fetch('http://localhost:5000/debug', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: `Please debug this code:\n\`\`\`\n${code}\n\`\`\``
+                })
             });
-
-            const debugOutput = response.data.response;
+            
+            const result = await response.json();
+            const debugOutput = result.response;
             
             // Clear and show debug output
             outputChannel.clear();
