@@ -299,7 +299,7 @@ def debug_code():
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
         output_tokens = model.generate(
             **inputs,
-            max_length=1024,
+            max_length=512,
             do_sample=True,
             temperature=0.7,
             top_p=0.9,

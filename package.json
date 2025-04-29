@@ -56,7 +56,7 @@
       },
       {
         "command": "codegenie.debugCode",
-        "key": "ctrl+alt+r",
+        "key": "ctrl+shift+8",
         "when": "editorTextFocus"
       }
     ]

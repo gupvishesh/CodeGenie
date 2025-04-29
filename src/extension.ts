@@ -98,6 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     function hideStatusBar() {
         statusBarItem.hide();
     }
+    // debug the code
 let disposable = vscode.commands.registerCommand('codegenie.debugCode', async () => {
     const editor = vscode.window.activeTextEditor;
     
