@@ -97,6 +97,76 @@ export function activate(context: vscode.ExtensionContext) {
     function hideStatusBar() {
         statusBarItem.hide();
     }
+    // debug the code
+let disposable = vscode.commands.registerCommand('codegenie.debugCode', async () => {
+    const editor = vscode.window.activeTextEditor;
+    
+    if (!editor) {
+        vscode.window.showErrorMessage('No active editor found!');
+        return;
+    }
+
+    const selection = editor.selection;
+    const code = editor.document.getText(selection);
+
+    if (!code.trim()) {
+        vscode.window.showErrorMessage('No code selected for debugging!');
+        return;
+    }
+
+    // Create output channel
+    const outputChannel = vscode.window.createOutputChannel('DeepSeek Debugger');
+    outputChannel.show();
+    outputChannel.appendLine('--- Starting Debugging ---');
+
+    try {
+        // Show progress notification
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Debugging code...",
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ message: "Analyzing code..." });
+
+            const response = await fetch('http://localhost:5000/debug', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: `Please debug this code:\n\`\`\`\n${code}\n\`\`\``
+                })
+            });
+            
+            const result = await response.json();
+            const debugOutput = result.response;
+            
+            // Clear and show debug output
+            outputChannel.clear();
+            outputChannel.appendLine('--- Debugging Results ---');
+            outputChannel.appendLine(debugOutput);
+            
+            // Show completion message
+            vscode.window.showInformationMessage('Debugging completed! Results in "DeepSeek Debugger" output panel.');
+        });
+
+    } catch (error: any) {
+        outputChannel.appendLine('--- Debugging Error ---');
+        
+        if (error.response) {
+            outputChannel.appendLine(`Status: ${error.response.status}`);
+            outputChannel.appendLine(`Data: ${JSON.stringify(error.response.data, null, 2)}`);
+        } else if (error.message) {
+            outputChannel.appendLine(`Error: ${error.message}`);
+        } else {
+            outputChannel.appendLine(`Unknown error: ${error}`);
+        }
+        
+        vscode.window.showErrorMessage('Debugging failed. See output panel for details.');
+    }
+});
+
+    context.subscriptions.push(disposable);
 
     const debouncedCompletion = debounce(getCompletion, 750);
 

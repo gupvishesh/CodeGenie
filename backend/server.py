@@ -4,6 +4,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import logging
 import os
+import re
 
 # Setup Flask and CORS
 app = Flask(__name__)
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Model configuration
-MODEL_PATH = os.environ.get("MODEL_PATH", "./Deepseek-Instruct")
+MODEL_PATH = "./Deepseek-Instruct"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Initialize model and tokenizer with proper error handling
@@ -250,7 +251,82 @@ def health_check():
         "model": model_status,
         "device": device
     })
+# Endpoint 5: /debug (code debugging and analysis)
+@app.route('/debug', methods=['POST'])
 
+def debug_code():
+    def analyze_code_issues(code):
+    # Basic dummy issue detection for placeholder
+        issues = []
+        if "==" in code and "if" in code:
+            issues.append("Potential logical comparison in condition")
+        if "print" not in code:
+            issues.append("Missing print statement (for debugging output)")
+        return issues
+    
+    try:
+        logger.info("Received request at /debug")
+        data = request.get_json()
+        prompt = data.get("prompt", "")
+
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        is_debug_request = "debug" in prompt.lower() or "fix" in prompt.lower() or "issue" in prompt.lower()
+        code_to_debug = ""
+
+        if is_debug_request:
+            code_match = re.search(r'(?:```[\w]*\n)?(.*?)(?:```)?$', prompt, re.DOTALL)
+            if code_match:
+                code_to_debug = code_match.group(1).strip()
+                logger.info(f"Extracted code for debugging: {code_to_debug[:100]}...")
+
+        if is_debug_request and code_to_debug:
+            detected_issues = analyze_code_issues(code_to_debug)
+            enhanced_prompt = (
+                "Analyze and debug the following code. "
+                f"Potential issues detected: {', '.join(detected_issues) if detected_issues else 'None detected'}. "
+                "Provide:\n"
+                "1. Detailed analysis of problems\n"
+                "2. Specific fixes\n"
+                "3. Improved version\n"
+                "4. Explanation of changes\n"
+                f"Code:\n```\n{code_to_debug}\n```"
+            )
+            prompt = enhanced_prompt
+            logger.info(f"Enhanced debug prompt: {enhanced_prompt[:200]}...")
+
+        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+        output_tokens = model.generate(
+            **inputs,
+            max_length=512,
+            do_sample=True,
+            temperature=0.7,
+            top_p=0.9,
+            num_return_sequences=1
+        )
+
+        response_text = tokenizer.decode(output_tokens[0], skip_special_tokens=True).strip()
+
+        if is_debug_request:
+            if "1." not in response_text and "2." not in response_text:
+                response_text = (
+                    "## Code Analysis\n\n" +
+                    response_text +
+                    "\n\n## Suggested Fixes\n\n" +
+                    "Here are the recommended changes to improve the code..."
+                )
+
+        if response_text.startswith(prompt):
+            response_text = response_text[len(prompt):].strip()
+
+        logger.info(f"Generated response for /debug (length: {len(response_text)})")
+        return jsonify({"response": response_text})
+
+    except Exception as e:
+        logger.error(f"Error in /debug: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+#Run the flask app
 if __name__ == '__main__':
     logger.info("Starting Flask server at http://127.0.0.1:5000")
     app.run(debug=True, port=5000, host='127.0.0.1')
