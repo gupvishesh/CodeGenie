@@ -12,7 +12,8 @@
     "Snippets"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:codegenie.optimize"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -36,6 +37,10 @@
       {
         "command": "codegenie.debugCode",
         "title": "Debug Selected Code"
+      },
+      {
+        "command": "codegenie.optimize",
+        "title": "Optimize"
       }
     ],
     "keybindings": [
@@ -57,6 +62,11 @@
       {
         "command": "codegenie.debugCode",
         "key": "ctrl+shift+8",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codegenie.optimize",
+        "key": "ctrl+shift+o",
         "when": "editorTextFocus"
       }
     ]
