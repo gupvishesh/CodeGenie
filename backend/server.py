@@ -62,6 +62,8 @@ def connection_info():
     })
 
 # Endpoint 1: /generate (uses 'prompt')
+chat_history=[]
+
 @app.route('/generate', methods=['POST'])
 def generate():
     try:
@@ -72,36 +74,50 @@ def generate():
             
         logger.info("Received request at /generate")
         
-        # Validate request format
         if not request.is_json:
             return error_response("Invalid content type. Expected application/json")
-            
+        
         data = request.get_json()
-        prompt = data.get("prompt", "")
+        prompt = data.get("prompt", "").strip()
 
         if not prompt:
             return error_response("No prompt provided")
 
-        logger.info(f"Processing prompt of length: {len(prompt)}")
+        logger.info(f"Processing new prompt of length: {len(prompt)}")
+
+        # Format context from history
+        context = ""
+        for i, (prev_prompt, prev_response) in enumerate(chat_history):
+            context += f"---\nPrompt {i+1}: {prev_prompt}\nResponse {i+1}: {prev_response}\n"
         
-        # Generate response
+
+        full_prompt = f"Prompt: {prompt}\nGive me the response to the mentioned prompt and consider all the below prompts and responses(which are our previous interactions) as context to refer\n {context}"
+
+        logger.info(f"{full_prompt}")
+
+        # Tokenize and generate
         with torch.no_grad():
-            inputs = tokenizer(prompt, return_tensors="pt").to(device)
+            inputs = tokenizer(full_prompt, return_tensors="pt").to(device)
             output_tokens = model.generate(
                 **inputs,
-                max_length=512,
+                max_length=1024,
                 do_sample=True,
-                temperature=0.5,
+                temperature=0.7,
                 top_p=0.9,
                 num_return_sequences=1
             )
 
             response_text = tokenizer.decode(output_tokens[0], skip_special_tokens=True).strip()
-            # Remove prompt from response if it appears at the beginning
-            if response_text.startswith(prompt):
-                response_text = response_text[len(prompt):].strip()
+
+            # Extract the latest response by removing the context
+            if response_text.startswith(full_prompt):
+                response_text = response_text[len(full_prompt):].strip()
 
         logger.info(f"Generated response of length: {len(response_text)}")
+
+        # Save this pair to history
+        chat_history.append((prompt, response_text))
+
         return jsonify({"response": response_text})
 
     except Exception as e:
