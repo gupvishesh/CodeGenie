@@ -21,6 +21,65 @@ interface ServerConfig {
     server_url: string;
 }
 
+interface ApiRequest{
+    text?: string;
+    code?: string;
+    prompt?: string;
+    language?: string;
+    languageName?: string;
+    fileName?: string;
+    type?: string;
+}
+
+const LANGUAGE_MAPPINGS: { [key: string]: string } = {
+    'javascript': 'JavaScript',
+    'typescript': 'TypeScript',
+    'python': 'Python',
+    'java': 'Java',
+    'cpp': 'C++',
+    'c': 'C',
+    'csharp': 'C#',
+    'go': 'Go',
+    'rust': 'Rust',
+    'php': 'PHP',
+    'ruby': 'Ruby',
+    'swift': 'Swift',
+    'kotlin': 'Kotlin',
+    'scala': 'Scala',
+    'html': 'HTML',
+    'css': 'CSS',
+    'scss': 'SCSS',
+    'json': 'JSON',
+    'xml': 'XML',
+    'yaml': 'YAML',
+    'markdown': 'Markdown',
+    'sql': 'SQL',
+    'shell': 'Shell/Bash',
+    'powershell': 'PowerShell',
+    'dockerfile': 'Dockerfile',
+    'plaintext': 'Plain Text'
+};
+
+function getLanguageInfo(editor: vscode.TextEditor):{
+    languageId: string;
+    languageName: string;
+    fileName: string;
+    fileExtension: string;
+} {
+    const document = editor.document;
+    const languageId = document.languageId;
+    const languageName = LANGUAGE_MAPPINGS[languageId] || languageId;
+    const fileName = path.basename(document.fileName);
+    const fileExtension = path.extname(document.fileName);
+
+    return {
+        languageId,
+        languageName,
+        fileName,
+        fileExtension
+    };
+
+}
 // Debounce function to limit API calls
 function debounce<F extends (...args: any[]) => any>(
     func: F,
@@ -153,7 +212,8 @@ export function activate(context: vscode.ExtensionContext) {
                 progress.report({ message: "Analyzing code..." });
     
                 const originalCode = editor.document.getText();
-    
+                const languageInfo = getLanguageInfo(editor);
+
                 // Making a POST request using fetch
                 const response = await fetch(`${serverUrl}/optimize`, {
                     method: 'POST',
@@ -162,6 +222,8 @@ export function activate(context: vscode.ExtensionContext) {
                     },
                     body: JSON.stringify({
                         text: originalCode,
+                        languageName: languageInfo.languageName,
+                        fileName: languageInfo.fileName,
                         type: 'optimize'
                     })
                 });
@@ -223,6 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
         
+        const languageInfo = getLanguageInfo(editor);
         const document = editor.document;
         const selection = editor.selection;
         
@@ -241,7 +304,7 @@ export function activate(context: vscode.ExtensionContext) {
         updateStatusBar("$(sync~spin) Generating middle fill...");
         
         // Get result from your custom middle-fill function
-        const result = await getMiddleFill(text);
+        const result = await getMiddleFill(text, languageInfo);
         
         // Insert result only if editor is still active and result is available
         if (result && editor === vscode.window.activeTextEditor) {
@@ -273,6 +336,8 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        const languageInfo = getLanguageInfo(editor);
+
         // Create output channel
         const outputChannel = vscode.window.createOutputChannel('DeepSeek Debugger');
         outputChannel.show();
@@ -293,7 +358,9 @@ export function activate(context: vscode.ExtensionContext) {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        prompt: `Please debug this code:\n\`\`\`\n${code}\n\`\`\``
+                        prompt: `Please debug this ${languageInfo.languageName} code:\n\`\`\`${languageInfo.languageId}\n${code}\n\`\`\``,
+                        languageName: languageInfo.languageName,
+                        fileName: languageInfo.fileName
                     })
                 });
                 
@@ -342,19 +409,25 @@ export function activate(context: vscode.ExtensionContext) {
     const debouncedGhostCompletion = debounce(getGhostCompletion, 700);
 
     // Completion functions
-    async function getCompletion(text: string): Promise<string> {
+    async function getCompletion(text: string, languageInfo?: any): Promise<string> {
         if (!ensureConnected()) return '';
         
         try {
             console.log("Sending text to API:", text.substring(0, 100) + "...");
             updateStatusBar("$(sync~spin) Generating completion...");
             
+            const requestBody: any = { text };
+            if (languageInfo) {
+                requestBody.languageName = languageInfo.languageName;
+                requestBody.fileName = languageInfo.fileName;
+            }
+            
             const response = await fetch(`${serverUrl}/complete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
@@ -390,6 +463,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             const document = editor.document;
             const selection = editor.selection;
+            const languageInfo = getLanguageInfo(editor);
 
             let text: string;
             if (!selection.isEmpty) {
@@ -404,7 +478,7 @@ export function activate(context: vscode.ExtensionContext) {
                 throw new Error("No text found for completion.");
             }
 
-            const completion = await debouncedCompletion(text);
+            const completion = await debouncedCompletion(text, languageInfo);
 
             if (editor === vscode.window.activeTextEditor && document === editor.document) {
                 await editor.edit(editBuilder => {
@@ -459,17 +533,23 @@ export function activate(context: vscode.ExtensionContext) {
         currentSuggestion = '';
     }
 
-    async function getGhostCompletion(text: string): Promise<string> {
+    async function getGhostCompletion(text: string, languageInfo?: any): Promise<string> {
         if (!ensureConnected()) return '';
         
         try {
             // Show status bar for ghost completion
             updateStatusBar("$(sync~spin) Generating suggestion...");
             
+            const requestBody: any = { code: text };
+            if (languageInfo) {
+                requestBody.languageName = languageInfo.languageName;
+                requestBody.fileName = languageInfo.fileName;
+            }
+            
             const res = await fetch(`${serverUrl}/hf-complete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: text }),
+                body: JSON.stringify(requestBody),
             });
             
             if (!res.ok) {
@@ -514,8 +594,9 @@ export function activate(context: vscode.ExtensionContext) {
 
             const position = editor.selection.active;
             const text = editor.document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+            const languageInfo = getLanguageInfo(editor);
 
-            const suggestion = await debouncedGhostCompletion(text);
+            const suggestion = await debouncedGhostCompletion(text, languageInfo);
             if (editor === vscode.window.activeTextEditor && suggestion) {
                 currentSuggestion = suggestion;
                 showSuggestion(editor, currentSuggestion);
@@ -542,7 +623,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Function to handle fill in the middle
-    async function getMiddleFill(text: string): Promise<string> { 
+    async function getMiddleFill(text: string, languageInfo: any): Promise<string> { 
         if (!ensureConnected()) return '';
         
         try { 
@@ -551,7 +632,11 @@ export function activate(context: vscode.ExtensionContext) {
             const response = await fetch(`${serverUrl}/fill_in_the_middle`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({ 
+                    text,
+                    languageName: languageInfo.languageName,
+                    fileName: languageInfo.fileName
+                }),
             });
             
             if (!response.ok) {
@@ -582,4 +667,3 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     console.log('CodeGenie extension is now deactivated');
 }
-
