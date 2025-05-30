@@ -131,62 +131,118 @@ def complete():
     except Exception as e:
         return error_response(f"Error in /complete: {str(e)}", 500)
     
-# Endpoint 3: /hf-complete (uses 'code')
+# # Endpoint 3: /hf-complete (uses 'code')
+# @app.route('/hf-complete', methods=['POST'])
+# def hf_complete():
+#     try:
+#         # Check model availability
+#         model_ready, error_msg, status_code = ensure_model()
+#         if not model_ready:
+#             return error_msg, status_code
+            
+#         # Validate request format
+#         if not request.is_json:
+#             return error_response("Invalid content type. Expected application/json")
+            
+#         data = request.get_json()
+#         input_text = data.get("code", "").strip()
+
+#         if not input_text:
+#             return error_response("No code provided")
+
+#         logger.info(f"Received /hf-complete request for input length {len(input_text)}")
+
+#         # Generate suggestion
+#         with torch.no_grad():
+#             inputs = tokenizer(input_text, return_tensors="pt").to(device)
+#             outputs = model.generate(
+#                 **inputs, 
+#                 max_new_tokens=32,
+#                 temperature=0.6,
+#                 top_p=0.95,
+#                 do_sample=True
+#             )
+#             full_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+#             # Trim input if echoed back
+#             #suggestion = full_output[len(input_text):].strip() if full_output.startswith(input_text) else full_output
+#             # Remove echoed input
+#             if full_output.startswith(input_text):
+#                 suggestion = full_output[len(input_text):]
+#             else:
+#                 suggestion = full_output
+
+#             # Stop suggestion at the start of any new function
+#             lines = suggestion.split('\n')
+#             filtered = []
+#             for line in lines:
+#                 if line.strip().startswith("def ") and filtered:
+#                     break  # Stop if another function is generated
+#                 filtered.append(line)
+    
+#             suggestion = "\n".join(filtered).strip()
+
+#         logger.info(f"HF-complete suggestion of length: {len(suggestion)}")
+#         return jsonify({"completion": suggestion})
+
+#     except Exception as e:
+#         return error_response(f"Error in /hf-complete: {str(e)}", 500)
+
 @app.route('/hf-complete', methods=['POST'])
 def hf_complete():
     try:
-        # Check model availability
         model_ready, error_msg, status_code = ensure_model()
         if not model_ready:
             return error_msg, status_code
-            
-        # Validate request format
+
         if not request.is_json:
             return error_response("Invalid content type. Expected application/json")
-            
+
         data = request.get_json()
-        input_text = data.get("code", "").strip()
+        input_text = data.get("code", "").rstrip()
 
         if not input_text:
             return error_response("No code provided")
 
         logger.info(f"Received /hf-complete request for input length {len(input_text)}")
 
-        # Generate suggestion
+        # Prompt is just the user input (no extra guiding comments)
+        prompt = input_text
+
         with torch.no_grad():
-            inputs = tokenizer(input_text, return_tensors="pt").to(device)
+            inputs = tokenizer(prompt, return_tensors="pt").to(device)
+            input_len = inputs['input_ids'].shape[1]
+
             outputs = model.generate(
-                **inputs, 
-                max_new_tokens=32,
-                temperature=0.6,
+                **inputs,
+                max_new_tokens=64,
+                temperature=0.7,
                 top_p=0.95,
-                do_sample=True
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id
             )
+
             full_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-            # Trim input if echoed back
-            #suggestion = full_output[len(input_text):].strip() if full_output.startswith(input_text) else full_output
-            # Remove echoed input
-            if full_output.startswith(input_text):
-                suggestion = full_output[len(input_text):]
-            else:
-                suggestion = full_output
+            # Extract only newly generated part
+            suggestion = full_output[len(input_text):].strip()
 
-            # Stop suggestion at the start of any new function
+            # Optional: stop suggestion on newline or block-ending character
             lines = suggestion.split('\n')
-            filtered = []
+            clean_lines = []
             for line in lines:
-                if line.strip().startswith("def ") and filtered:
-                    break  # Stop if another function is generated
-                filtered.append(line)
-    
-            suggestion = "\n".join(filtered).strip()
+                if line.strip() == "" or line.strip().endswith("{"):
+                    break
+                clean_lines.append(line)
+            suggestion = "\n".join(clean_lines).strip()
 
         logger.info(f"HF-complete suggestion of length: {len(suggestion)}")
         return jsonify({"completion": suggestion})
 
     except Exception as e:
         return error_response(f"Error in /hf-complete: {str(e)}", 500)
+
+
 
 # Endpoint 4: /fill_in_the_middle (uses 'text')
 @app.route("/fill_in_the_middle", methods=["POST"])

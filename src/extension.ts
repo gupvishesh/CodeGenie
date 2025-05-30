@@ -364,31 +364,50 @@ let disposable = vscode.commands.registerCommand('codegenie.debugCode', async ()
         currentSuggestion = '';
     }
 
-    const getGhostCompletion = debounce(async (text: string): Promise<string> => {
-        try {
-            // Show status bar for ghost completion
-            updateStatusBar("Generating suggestion...");
-            
-            const res = await fetch('http://127.0.0.1:5000/hf-complete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: text }),
-            });
-            
-            if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
-            }
-            
-            const data = await res.json();
-            return data.completion?.trim() || '';
-        } catch (e) {
-            console.error('Ghost completion error:', e);
-            return '';
-        } finally {
-            // Hide status bar when done
-            hideStatusBar();
+    // Debounce utility
+function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
+    let timeout: NodeJS.Timeout;
+    return function (...args: Parameters<T>) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    } as T;
+}
+
+    // Debounced ghost completion trigger (5 seconds)
+const scheduleGhostCompletion = debounce(async (document: vscode.TextDocument, position: vscode.Position) => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || document !== editor.document) return;
+
+    const text = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+
+    // Show loading status
+    updateStatusBar("Generating suggestion...");
+
+    try {
+        const res = await fetch('http://127.0.0.1:5000/hf-complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: text }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+        const suggestion = data.completion?.trim() || '';
+
+        if (suggestion && editor === vscode.window.activeTextEditor) {
+            currentSuggestion = suggestion;
+            showSuggestion(editor, currentSuggestion);
+        } else {
+            clearSuggestion(editor);
         }
-    }, 700);
+    } catch (e) {
+        console.error("Ghost completion error:", e);
+        clearSuggestion(editor);
+    } finally {
+        hideStatusBar();
+    }
+}, 5000); // 5-second delay
 
     // Command to accept ghost suggestion
     context.subscriptions.push(
@@ -407,27 +426,24 @@ let disposable = vscode.commands.registerCommand('codegenie.debugCode', async ()
         })
     );
 
-    // Handle user typing (and ghost suggestion logic)
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(async (event) => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || event.document !== editor.document) return;
+    // Trigger ghost completion after typing
+context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || event.document !== editor.document) return;
 
-            // Skip suggestion if just inserted
-            if (isInsertingSuggestion) return;
+        // Don't trigger suggestion if inserting it
+        if (isInsertingSuggestion) return;
 
-            const position = editor.selection.active;
-            const text = editor.document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+        const position = editor.selection.active;
 
-            const suggestion = await getGhostCompletion(text);
-            if (editor === vscode.window.activeTextEditor && suggestion) {
-                currentSuggestion = suggestion;
-                showSuggestion(editor, currentSuggestion);
-            } else if (editor === vscode.window.activeTextEditor) {
-                clearSuggestion(editor);
-            }
-        })
-    );
+        // Clear suggestion immediately while typing
+        clearSuggestion(editor);
+
+        // Schedule a new suggestion after 5 seconds of no typing
+        scheduleGhostCompletion(event.document, position);
+    })
+);
 
     // Function to handle fill in the middle
     async function getMiddleFill(text: string): Promise<string> { 
