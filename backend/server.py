@@ -215,7 +215,7 @@ def hf_complete():
 
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=64,
+                max_new_tokens=15,
                 temperature=0.7,
                 top_p=0.95,
                 do_sample=True,
